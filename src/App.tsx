@@ -2,7 +2,7 @@ import { motion, useMotionValue, useTransform, useSpring, MotionValue } from "fr
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 
 const DISCO_KAVA_IMAGES = [
-  "_DSC4215.webp", "_DSC1837.webp", "_DSC1856.webp", "_DSC1856.webp", "_DSC1868.webp", "_DSC1903.webp",
+  "_DSC4215.webp", "_DSC1837.webp", "_DSC1856.webp", "_DSC1868.webp", "_DSC1903.webp",
   "_DSC1916.webp", "_DSC1952.webp", "_DSC2022.webp", "_DSC2077.webp", "_DSC2212.webp",
   "_DSC2347.webp", "_DSC2393.webp", "_DSC2426.webp", "_DSC2456.webp", "_DSC2511.webp",
   "_DSC2532.webp", "_DSC2665.webp", "_DSC2721.webp", "_DSC2814.webp", "_DSC2959.webp",
@@ -10,7 +10,7 @@ const DISCO_KAVA_IMAGES = [
   "_DSC4127.webp", "_DSC4191.webp", "_DSC4196.webp", "_DSC4243.webp", "_DSC4247.webp",
   "_DSC4335.webp", "_DSC4645.webp", "_DSC4702.webp", "_DSC4767.webp", "_DSC4884.webp",
   "_DSC4889.webp", "_DSC4890.webp", "_DSC5317.webp", "_DSC5379.webp", "_DSC5380.webp",
-  "_DSC5382.webp", "_DSC5525.webp", "Kopija dokumenta _DSC4215.webp"
+  "_DSC5382.webp", "_DSC5525.webp"
 ];
 
 const PROJECTS_DATA = DISCO_KAVA_IMAGES.map((img, idx) => ({
@@ -50,12 +50,12 @@ function ProjectCard({ project, idx, progress, pStart, pPeak, pEnd, CARD_WIDTH_V
   const localScale = useMotionValue(1);
   const smoothScale = useSpring(localScale, { damping: 30, stiffness: 200 });
   
-  // Track mouse position within the card for origin-based zooming
   const originX = useMotionValue(0.5);
   const originY = useMotionValue(0.5);
   const smoothOriginX = useSpring(originX, { damping: 40, stiffness: 300 });
   const smoothOriginY = useSpring(originY, { damping: 40, stiffness: 300 });
 
+  const [isZoomed, setIsZoomed] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
   const handleWheel = useCallback((e: WheelEvent) => {
@@ -63,6 +63,7 @@ function ProjectCard({ project, idx, progress, pStart, pPeak, pEnd, CARD_WIDTH_V
     const currentScale = localScale.get();
     const newScale = Math.min(Math.max(currentScale - e.deltaY * zoomSensitivity, 1), 4);
     localScale.set(newScale);
+    setIsZoomed(newScale > 1.05);
   }, [localScale]);
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -77,20 +78,21 @@ function ProjectCard({ project, idx, progress, pStart, pPeak, pEnd, CARD_WIDTH_V
   return (
     <div 
       ref={cardRef}
-      className="relative flex-shrink-0 flex items-center justify-center" 
+      className={`relative flex-shrink-0 flex items-center justify-center transition-colors duration-300 ${isZoomed ? 'cursor-zoom-out' : 'cursor-crosshair'}`} 
       style={{ width: `${CARD_WIDTH_VW}vw`, height: '75vh' }}
       onMouseEnter={() => onHoverChange(idx, handleWheel)}
       onMouseLeave={() => {
         onHoverChange(null, null);
-        localScale.set(1); // Reset zoom on leave
+        localScale.set(1);
+        setIsZoomed(false);
       }}
       onMouseMove={handleMouseMove}
     >
-      <div className="w-full h-full flex items-center justify-center overflow-hidden">
+      <div className="w-full h-full flex items-center justify-center overflow-hidden pointer-events-none">
         <motion.img 
           src={project.image} 
           alt={project.title} 
-          className="max-w-full max-h-full object-contain grayscale hover:grayscale-0 transition-all duration-700 shadow-2xl pointer-events-auto cursor-zoom-in" 
+          className="max-w-full max-h-full object-contain grayscale hover:grayscale-0 transition-all duration-700 shadow-2xl" 
           style={{ 
             scale: smoothScale,
             originX: smoothOriginX,
@@ -155,9 +157,11 @@ function App() {
   const STEP_VW = CARD_WIDTH_VW + GAP_VW;
   const INITIAL_OFFSET_VW = (100 - CARD_WIDTH_VW) / 2;
 
-  const step = (1 - carouselStart) / PROJECTS_DATA.length;
-  const carouselInput = [carouselStart, ...PROJECTS_DATA.map((_, i) => carouselStart + (i + 1) * step)];
-  const carouselOutput = ["100vw", ...PROJECTS_DATA.map((_, i) => `${INITIAL_OFFSET_VW - (i * STEP_VW)}vw`)];
+  // REFINED CAROUSEL MATH (Including the button)
+  const totalItems = PROJECTS_DATA.length + 1; // Projects + Back to start button
+  const step = (1 - carouselStart) / totalItems;
+  const carouselInput = [carouselStart, ...Array.from({length: totalItems}).map((_, i) => carouselStart + (i + 1) * step)];
+  const carouselOutput = ["100vw", ...Array.from({length: totalItems}).map((_, i) => `${INITIAL_OFFSET_VW - (i * STEP_VW)}vw`)];
   const carouselX = useTransform(progress, carouselInput, carouselOutput);
 
   const handleHoverChange = useCallback((idx: number | null, handler: any) => {
@@ -197,6 +201,27 @@ function App() {
               onHoverChange={handleHoverChange}
             />
           ))}
+          
+          <div 
+            className="relative flex-shrink-0 flex items-center justify-center cursor-pointer pointer-events-auto group" 
+            style={{ width: `${CARD_WIDTH_VW}vw`, height: '75vh' }}
+            onClick={() => {
+              scrollValue.set(SCROLL_RANGE * titlePeak);
+            }}
+          >
+            <div className="flex flex-col items-center gap-4">
+              <motion.span 
+                className="text-[4vw] font-bold uppercase tracking-[0.2em] border-b-2 border-transparent group-hover:border-white transition-all duration-500"
+              >
+                BACK TO START
+              </motion.span>
+              <motion.div 
+                className="text-4xl opacity-0 group-hover:opacity-100 -translate-x-10 group-hover:translate-x-0 transition-all duration-500"
+              >
+                ←
+              </motion.div>
+            </div>
+          </div>
         </div>
       </motion.div>
 
