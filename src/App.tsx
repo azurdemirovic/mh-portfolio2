@@ -19,6 +19,7 @@ const PROJECTS_DATA = DISCO_KAVA_IMAGES.map((img, idx) => ({
   image: `/discokava/${img}`
 }));
 
+// STABLE TIMINGS (Normalized 0.0 to 1.0)
 const entranceEnd = 0.08;
 const alignEnd = 0.16;
 const expandEnd = 0.24;
@@ -29,7 +30,11 @@ const titlePeak = 0.50;
 const titleDisperseStart = 0.54;
 const titleDisperseEnd = 0.64;
 const carouselStart = 0.65;
-const SCROLL_RANGE = 25000;
+
+// SCROLL VALUES for non-linear mapping
+const INTRO_SCROLL_END = 3000;      // Fast intro
+const CAROUSEL_ENTRANCE_END = 8000;  // Slow entrance
+const TOTAL_SCROLL_RANGE = 25000;    // Standard browse speed
 
 function DispersingLetter({ char, progress, enterRange, disperseStart, disperseEnd, dispersal }: any) {
   const start = disperseStart + (dispersal.delay * (disperseEnd - disperseStart) * 0.5);
@@ -49,12 +54,10 @@ function DispersingLetter({ char, progress, enterRange, disperseStart, disperseE
 function ProjectCard({ project, idx, progress, pStart, pPeak, pEnd, CARD_WIDTH_VW, onHoverChange }: any) {
   const localScale = useMotionValue(1);
   const smoothScale = useSpring(localScale, { damping: 30, stiffness: 200 });
-  
   const originX = useMotionValue(0.5);
   const originY = useMotionValue(0.5);
   const smoothOriginX = useSpring(originX, { damping: 40, stiffness: 300 });
   const smoothOriginY = useSpring(originY, { damping: 40, stiffness: 300 });
-
   const [isZoomed, setIsZoomed] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -69,35 +72,33 @@ function ProjectCard({ project, idx, progress, pStart, pPeak, pEnd, CARD_WIDTH_V
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!cardRef.current) return;
     const rect = cardRef.current.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width;
-    const y = (e.clientY - rect.top) / rect.height;
-    originX.set(x);
-    originY.set(y);
+    originX.set((e.clientX - rect.left) / rect.width);
+    originY.set((e.clientY - rect.top) / rect.height);
   };
 
   return (
     <div 
       ref={cardRef}
-      className={`relative flex-shrink-0 flex items-center justify-center transition-colors duration-300 ${isZoomed ? 'cursor-zoom-out' : 'cursor-crosshair'}`} 
+      className="relative flex-shrink-0 flex items-center justify-center pointer-events-none" 
       style={{ width: `${CARD_WIDTH_VW}vw`, height: '75vh' }}
-      onMouseEnter={() => onHoverChange(idx, handleWheel)}
-      onMouseLeave={() => {
-        onHoverChange(null, null);
-        localScale.set(1);
-        setIsZoomed(false);
-      }}
-      onMouseMove={handleMouseMove}
     >
-      <div className="w-full h-full flex items-center justify-center overflow-hidden pointer-events-none">
+      <div className="w-full h-full flex items-center justify-center overflow-hidden">
         <motion.img 
           src={project.image} 
           alt={project.title} 
-          className="max-w-full max-h-full object-contain grayscale hover:grayscale-0 transition-all duration-700 shadow-2xl" 
+          className={`max-w-full max-h-full object-contain grayscale hover:grayscale-0 transition-all duration-700 shadow-2xl pointer-events-auto ${isZoomed ? 'cursor-zoom-out' : 'cursor-crosshair'}`} 
           style={{ 
             scale: smoothScale,
             originX: smoothOriginX,
             originY: smoothOriginY
           }}
+          onMouseEnter={() => onHoverChange(idx, handleWheel)}
+          onMouseLeave={() => {
+            onHoverChange(null, null);
+            localScale.set(1);
+            setIsZoomed(false);
+          }}
+          onMouseMove={handleMouseMove}
           loading={idx < 5 ? "eager" : "lazy"} 
         />
       </div>
@@ -116,7 +117,16 @@ function ProjectCard({ project, idx, progress, pStart, pPeak, pEnd, CARD_WIDTH_V
 function App() {
   const scrollValue = useMotionValue(0);
   const smoothProgress = useSpring(scrollValue, { damping: 60, stiffness: 200 });
-  const progress = useTransform(smoothProgress, [0, SCROLL_RANGE], [0, 1]);
+
+  // NON-LINEAR MAPPING
+  // 0 -> 3000: Fast Intro (Phases 1 & 2 cover 0.65 progress)
+  // 3000 -> 8000: Slow Carousel Entrance (0.65 -> 0.75)
+  // 8000 -> 25000: Browsing (0.75 -> 1.0)
+  const progress = useTransform(
+    smoothProgress, 
+    [0, INTRO_SCROLL_END, CAROUSEL_ENTRANCE_END, TOTAL_SCROLL_RANGE], 
+    [0, carouselStart, 0.75, 1]
+  );
 
   const [activeZoomHandler, setActiveZoomHandler] = useState<{idx: number, handler: (e: WheelEvent) => void} | null>(null);
 
@@ -126,9 +136,9 @@ function App() {
       if (activeZoomHandler) {
         activeZoomHandler.handler(e);
       } else {
-        const sensitivity = 1.5;
+        const sensitivity = 1.0;
         const newValue = scrollValue.get() + e.deltaY * sensitivity;
-        scrollValue.set(Math.min(Math.max(newValue, 0), SCROLL_RANGE));
+        scrollValue.set(Math.min(Math.max(newValue, 0), TOTAL_SCROLL_RANGE));
       }
     };
     window.addEventListener('wheel', handleWheel, { passive: false });
@@ -157,8 +167,7 @@ function App() {
   const STEP_VW = CARD_WIDTH_VW + GAP_VW;
   const INITIAL_OFFSET_VW = (100 - CARD_WIDTH_VW) / 2;
 
-  // REFINED CAROUSEL MATH (Including the button)
-  const totalItems = PROJECTS_DATA.length + 1; // Projects + Back to start button
+  const totalItems = PROJECTS_DATA.length + 1;
   const step = (1 - carouselStart) / totalItems;
   const carouselInput = [carouselStart, ...Array.from({length: totalItems}).map((_, i) => carouselStart + (i + 1) * step)];
   const carouselOutput = ["100vw", ...Array.from({length: totalItems}).map((_, i) => `${INITIAL_OFFSET_VW - (i * STEP_VW)}vw`)];
@@ -206,20 +215,23 @@ function App() {
             className="relative flex-shrink-0 flex items-center justify-center cursor-pointer pointer-events-auto group" 
             style={{ width: `${CARD_WIDTH_VW}vw`, height: '75vh' }}
             onClick={() => {
-              scrollValue.set(SCROLL_RANGE * titlePeak);
+              // Return to title screen
+              scrollValue.set(INTRO_SCROLL_END * (titlePeak / carouselStart));
             }}
           >
-            <div className="flex flex-col items-center gap-4">
-              <motion.span 
-                className="text-[4vw] font-bold uppercase tracking-[0.2em] border-b-2 border-transparent group-hover:border-white transition-all duration-500"
-              >
-                BACK TO START
-              </motion.span>
-              <motion.div 
-                className="text-4xl opacity-0 group-hover:opacity-100 -translate-x-10 group-hover:translate-x-0 transition-all duration-500"
+            <div className="flex items-center gap-6">
+              <div 
+                className="text-6xl text-transparent transition-all duration-500 group-hover:-translate-x-2"
+                style={{ WebkitTextStroke: '1px white' }}
               >
                 ←
-              </motion.div>
+              </div>
+              <span 
+                className="text-[4vw] font-normal lowercase tracking-tight text-transparent transition-all duration-500"
+                style={{ WebkitTextStroke: '1px white' }}
+              >
+                back to start
+              </span>
             </div>
           </div>
         </div>
