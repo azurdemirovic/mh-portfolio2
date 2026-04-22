@@ -214,14 +214,6 @@ function App() {
       </div>
 
       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-40">
-        <motion.div style={{ opacity: useTransform(progress, [titleEnterStart, titlePeak, titleDisperseStart], [0, 1, 0]) }} className="absolute top-12 right-12 text-[10px] uppercase tracking-[0.3em] flex items-start gap-3 origin-right">
-          <span style={{ WebkitTextStroke: '0.5px white' }} className="text-xl text-transparent leading-none">*</span>
-          <div className="flex flex-col gap-1 font-light opacity-60 scale-y-150 origin-top">
-            <span>scroll into images</span>
-            <span>to view details</span>
-          </div>
-        </motion.div>
-
         <motion.div className="flex text-[12vw] font-normal lowercase tracking-tight leading-none" style={{ y: useTransform(progress, [titleEnterStart, titlePeak], ["-50vh", "0vh"]) }}>
           {lettersSelected.map((char, i) => <DispersingLetter key={`s-${i}`} char={char} progress={progress} dispersal={dispSelected[i]} enterRange={[titleEnterStart, titlePeak]} disperseStart={titleDisperseStart} disperseEnd={titleDisperseEnd} />)}
         </motion.div>
@@ -229,6 +221,21 @@ function App() {
           {lettersWorks.map((char, i) => <DispersingLetter key={`w-${i}`} char={char} progress={progress} dispersal={dispWorks[i]} enterRange={[titleEnterStart, titlePeak]} disperseStart={titleDisperseStart} disperseEnd={titleDisperseEnd} isOutlined />)}
         </motion.div>
       </div>
+
+      {/* CAROUSEL TOOLTIP */}
+      <motion.div 
+        style={{ opacity: useTransform(progress, [carouselStart, carouselStart + 0.05], [0, 1]) }} 
+        className="fixed top-12 right-12 text-white z-50 pointer-events-none"
+      >
+        <span className="text-xl font-light block opacity-0 mb-1">00 /</span>
+        <div className="flex items-start gap-3 origin-right text-[10px] uppercase tracking-[0.3em] flex-row-reverse text-right">
+          <span style={{ WebkitTextStroke: '0.5px white' }} className="text-xl text-transparent leading-none">*</span>
+          <div className="flex flex-col gap-1 font-light opacity-60 scale-y-150 origin-top">
+            <span>scroll into images</span>
+            <span>to see details</span>
+          </div>
+        </div>
+      </motion.div>
 
       <motion.div style={{ x: carouselX }} className="absolute inset-0 flex items-center z-30 pointer-events-none">
         <div className="flex items-center" style={{ gap: `${GAP_VW}vw` }}>
