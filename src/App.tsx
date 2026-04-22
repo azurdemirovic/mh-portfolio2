@@ -117,7 +117,7 @@ function ProjectCard({ project, idx, progress, pStart, pPeak, pEnd, CARD_WIDTH_V
             setIsZoomed(false);
           }}
           onMouseMove={handleMouseMove}
-          loading={idx < 5 ? "eager" : "lazy"} 
+          loading="eager" 
         />
       </div>
       
