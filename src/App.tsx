@@ -1,4 +1,4 @@
-import { motion, useMotionValue, useTransform, useSpring, MotionValue } from "framer-motion";
+import { motion, useMotionValue, useTransform, useSpring, MotionValue, animate } from "framer-motion";
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 
 const DISCO_KAVA_IMAGES = [
@@ -118,10 +118,6 @@ function App() {
   const scrollValue = useMotionValue(0);
   const smoothProgress = useSpring(scrollValue, { damping: 60, stiffness: 200 });
 
-  // NON-LINEAR MAPPING
-  // 0 -> 3000: Fast Intro (Phases 1 & 2 cover 0.65 progress)
-  // 3000 -> 8000: Slow Carousel Entrance (0.65 -> 0.75)
-  // 8000 -> 25000: Browsing (0.75 -> 1.0)
   const progress = useTransform(
     smoothProgress, 
     [0, INTRO_SCROLL_END, CAROUSEL_ENTRANCE_END, TOTAL_SCROLL_RANGE], 
@@ -178,6 +174,24 @@ function App() {
     else setActiveZoomHandler({ idx, handler });
   }, []);
 
+  const handleBackToStart = () => {
+    // The first project is centered at carouselStart + step
+    // Using our non-linear map, 0.65+ (carouselStart) corresponds to INTRO_SCROLL_END (3000)
+    // We'll target slightly past that where the first card centers
+    const targetProgress = carouselStart + step;
+    
+    // Reverse map: find scroll value that produces targetProgress
+    // targetProgress is in the range [carouselStart, 0.75]
+    // so we interpolate between INTRO_SCROLL_END and CAROUSEL_ENTRANCE_END
+    const ratio = (targetProgress - carouselStart) / (0.75 - carouselStart);
+    const targetScroll = INTRO_SCROLL_END + ratio * (CAROUSEL_ENTRANCE_END - INTRO_SCROLL_END);
+
+    animate(scrollValue, targetScroll, {
+      duration: 2.5,
+      ease: [0.65, 0, 0.35, 1]
+    });
+  };
+
   return (
     <div className="fixed inset-0 bg-black text-white font-univers overflow-hidden flex items-center justify-center">
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-[8vw] font-bold uppercase tracking-tighter">
@@ -214,10 +228,7 @@ function App() {
           <div 
             className="relative flex-shrink-0 flex items-center justify-center cursor-pointer pointer-events-auto group" 
             style={{ width: `${CARD_WIDTH_VW}vw`, height: '75vh' }}
-            onClick={() => {
-              // Return to title screen
-              scrollValue.set(INTRO_SCROLL_END * (titlePeak / carouselStart));
-            }}
+            onClick={handleBackToStart}
           >
             <div className="flex items-center gap-6">
               <div 
