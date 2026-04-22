@@ -1,8 +1,8 @@
 import { motion, useMotionValue, useTransform, useSpring, MotionValue } from "framer-motion";
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 
 const DISCO_KAVA_IMAGES = [
-  "_DSC4215.webp", "_DSC1837.webp", "_DSC1856.webp", "_DSC1868.webp", "_DSC1903.webp",
+  "_DSC4215.webp", "_DSC1837.webp", "_DSC1856.webp", "_DSC1856.webp", "_DSC1868.webp", "_DSC1903.webp",
   "_DSC1916.webp", "_DSC1952.webp", "_DSC2022.webp", "_DSC2077.webp", "_DSC2212.webp",
   "_DSC2347.webp", "_DSC2393.webp", "_DSC2426.webp", "_DSC2456.webp", "_DSC2511.webp",
   "_DSC2532.webp", "_DSC2665.webp", "_DSC2721.webp", "_DSC2814.webp", "_DSC2959.webp",
@@ -19,7 +19,6 @@ const PROJECTS_DATA = DISCO_KAVA_IMAGES.map((img, idx) => ({
   image: `/discokava/${img}`
 }));
 
-// TIMINGS
 const entranceEnd = 0.08;
 const alignEnd = 0.16;
 const expandEnd = 0.24;
@@ -50,32 +49,53 @@ function DispersingLetter({ char, progress, enterRange, disperseStart, disperseE
 function ProjectCard({ project, idx, progress, pStart, pPeak, pEnd, CARD_WIDTH_VW, onHoverChange }: any) {
   const localScale = useMotionValue(1);
   const smoothScale = useSpring(localScale, { damping: 30, stiffness: 200 });
+  
+  // Track mouse position within the card for origin-based zooming
+  const originX = useMotionValue(0.5);
+  const originY = useMotionValue(0.5);
+  const smoothOriginX = useSpring(originX, { damping: 40, stiffness: 300 });
+  const smoothOriginY = useSpring(originY, { damping: 40, stiffness: 300 });
+
+  const cardRef = useRef<HTMLDivElement>(null);
 
   const handleWheel = useCallback((e: WheelEvent) => {
-    // When hovering, this card handles the wheel for zooming
-    const zoomSensitivity = 0.001;
+    const zoomSensitivity = 0.0015;
     const currentScale = localScale.get();
-    const newScale = Math.min(Math.max(currentScale - e.deltaY * zoomSensitivity, 1), 3);
+    const newScale = Math.min(Math.max(currentScale - e.deltaY * zoomSensitivity, 1), 4);
     localScale.set(newScale);
   }, [localScale]);
 
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    originX.set(x);
+    originY.set(y);
+  };
+
   return (
     <div 
+      ref={cardRef}
       className="relative flex-shrink-0 flex items-center justify-center" 
       style={{ width: `${CARD_WIDTH_VW}vw`, height: '75vh' }}
-      onMouseEnter={() => {
-        onHoverChange(idx, handleWheel);
-      }}
+      onMouseEnter={() => onHoverChange(idx, handleWheel)}
       onMouseLeave={() => {
         onHoverChange(null, null);
+        localScale.set(1); // Reset zoom on leave
       }}
+      onMouseMove={handleMouseMove}
     >
       <div className="w-full h-full flex items-center justify-center overflow-hidden">
         <motion.img 
           src={project.image} 
           alt={project.title} 
           className="max-w-full max-h-full object-contain grayscale hover:grayscale-0 transition-all duration-700 shadow-2xl pointer-events-auto cursor-zoom-in" 
-          style={{ scale: smoothScale }}
+          style={{ 
+            scale: smoothScale,
+            originX: smoothOriginX,
+            originY: smoothOriginY
+          }}
           loading={idx < 5 ? "eager" : "lazy"} 
         />
       </div>
@@ -101,18 +121,14 @@ function App() {
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
-      
       if (activeZoomHandler) {
-        // If we are hovering an image, use wheel to zoom
         activeZoomHandler.handler(e);
       } else {
-        // Otherwise, move the carousel
         const sensitivity = 1.5;
         const newValue = scrollValue.get() + e.deltaY * sensitivity;
         scrollValue.set(Math.min(Math.max(newValue, 0), SCROLL_RANGE));
       }
     };
-    
     window.addEventListener('wheel', handleWheel, { passive: false });
     return () => window.removeEventListener('wheel', handleWheel);
   }, [scrollValue, activeZoomHandler]);
@@ -151,7 +167,6 @@ function App() {
 
   return (
     <div className="fixed inset-0 bg-black text-white font-univers overflow-hidden flex items-center justify-center">
-      {/* PHASE 1: NAMES */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-[8vw] font-bold uppercase tracking-tighter">
         <motion.div className="absolute top-1/2 left-1/2 flex items-center" style={{ transform: 'translate(-50%, -50%)', x: useTransform(progress, [0, entranceEnd, alignEnd], ["100vw", "5vw", "-15vw"]), y: useTransform(progress, [0, entranceEnd, alignEnd], ["-10vh", "-10vh", "-6vh"]) }}>
           {lettersMatej.map((char, i) => <DispersingLetter key={`m-${i}`} char={char} progress={progress} dispersal={dispMatej[i]} enterRange={i === 0 ? [0, 0] : [alignEnd, expandEnd]} disperseStart={nameDisperseStart} disperseEnd={nameDisperseEnd} />)}
@@ -161,7 +176,6 @@ function App() {
         </motion.div>
       </div>
 
-      {/* PHASE 2: SELECTED WORKS */}
       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-40">
         <motion.div className="flex text-[12vw] font-normal lowercase tracking-tight leading-none" style={{ y: useTransform(progress, [titleEnterStart, titlePeak], ["-50vh", "0vh"]) }}>
           {lettersSelected.map((char, i) => <DispersingLetter key={`s-${i}`} char={char} progress={progress} dispersal={dispSelected[i]} enterRange={[titleEnterStart, titlePeak]} disperseStart={titleDisperseStart} disperseEnd={titleDisperseEnd} />)}
@@ -171,7 +185,6 @@ function App() {
         </motion.div>
       </div>
 
-      {/* PHASE 3: CAROUSEL */}
       <motion.div style={{ x: carouselX }} className="absolute inset-0 flex items-center z-30 pointer-events-none">
         <div className="flex items-center" style={{ gap: `${GAP_VW}vw` }}>
           {PROJECTS_DATA.map((project, idx) => (
@@ -187,7 +200,6 @@ function App() {
         </div>
       </motion.div>
 
-      {/* Scroll Indicator */}
       <motion.div style={{ opacity: useTransform(progress, [0, 0.02], [1, 0]) }} className="absolute bottom-10 left-1/2 -translate-x-1/2 text-[10px] tracking-[0.5em] opacity-40 uppercase">
         Scroll to begin
       </motion.div>
