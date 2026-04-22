@@ -259,8 +259,14 @@ function App() {
         </div>
       </motion.div>
 
-      <motion.div style={{ opacity: useTransform(progress, [0, 0.02], [1, 0]) }} className="absolute bottom-10 left-1/2 -translate-x-1/2 text-[10px] tracking-[0.5em] opacity-40 uppercase">
-        Scroll to begin
+      <motion.div 
+        style={{ opacity: useTransform(progress, [0, 0.02], [1, 0]) }} 
+        className="absolute bottom-10 left-1/2 -translate-x-1/2 flex items-start gap-3 text-[10px] uppercase tracking-[0.3em]"
+      >
+        <span style={{ WebkitTextStroke: '0.5px white' }} className="text-xl text-transparent leading-none">*</span>
+        <div className="flex flex-col gap-1 font-light opacity-60 scale-y-150 origin-top">
+          <span>Scroll to begin</span>
+        </div>
       </motion.div>
     </div>
   );
