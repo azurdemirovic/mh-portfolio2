@@ -204,6 +204,18 @@ function App() {
       </div>
 
       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-40">
+        {/* Interaction Hint */}
+        <motion.div 
+          style={{ opacity: useTransform(progress, [titleEnterStart, titlePeak, titleDisperseStart], [0, 1, 0]) }}
+          className="absolute top-12 right-12 text-[10px] uppercase tracking-[0.3em] flex items-start gap-3 origin-right"
+        >
+          <span style={{ WebkitTextStroke: '0.5px white' }} className="text-xl text-transparent leading-none">*</span>
+          <div className="flex flex-col gap-1 font-light opacity-60 scale-y-150 origin-top">
+            <span>scroll into images</span>
+            <span>to view details</span>
+          </div>
+        </motion.div>
+
         <motion.div className="flex text-[12vw] font-normal lowercase tracking-tight leading-none" style={{ y: useTransform(progress, [titleEnterStart, titlePeak], ["-50vh", "0vh"]) }}>
           {lettersSelected.map((char, i) => <DispersingLetter key={`s-${i}`} char={char} progress={progress} dispersal={dispSelected[i]} enterRange={[titleEnterStart, titlePeak]} disperseStart={titleDisperseStart} disperseEnd={titleDisperseEnd} />)}
         </motion.div>
