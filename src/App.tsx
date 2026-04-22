@@ -1,9 +1,8 @@
 import { motion, useMotionValue, useTransform, useSpring, MotionValue } from "framer-motion";
 import { useEffect, useMemo } from "react";
 
-// List of all images in the discokava folder - updated to .webp
 const DISCO_KAVA_IMAGES = [
-  "_DSC4215.webp", "_DSC1837.webp", "_DSC1856.webp", "_DSC1868.webp", "_DSC1903.webp",
+  "_DSC4215.webp", "_DSC1837.webp", "_DSC1856.webp", "_DSC1856.webp", "_DSC1868.webp", "_DSC1903.webp",
   "_DSC1916.webp", "_DSC1952.webp", "_DSC2022.webp", "_DSC2077.webp", "_DSC2212.webp",
   "_DSC2347.webp", "_DSC2393.webp", "_DSC2426.webp", "_DSC2456.webp", "_DSC2511.webp",
   "_DSC2532.webp", "_DSC2665.webp", "_DSC2721.webp", "_DSC2814.webp", "_DSC2959.webp",
@@ -92,9 +91,15 @@ function App() {
   const dispSelected = useMemo(() => lettersSelected.map(() => getRandomDispersal('bottom')), [lettersSelected]);
   const dispWorks = useMemo(() => lettersWorks.map(() => getRandomDispersal('bottom')), [lettersWorks]);
 
+  // CAROUSEL CONFIG
+  const CARD_WIDTH_VW = 60;
+  const GAP_VW = 5; // Unified spacing
+  const STEP_VW = CARD_WIDTH_VW + GAP_VW;
+  const INITIAL_OFFSET_VW = (100 - CARD_WIDTH_VW) / 2; // Centers the first card: (100-60)/2 = 20vw
+
   const step = (1 - carouselStart) / (PROJECTS.length);
   const carouselInput = [carouselStart, ...PROJECTS.map((_, i) => carouselStart + (i + 1) * step)];
-  const carouselOutput = ["100vw", ...PROJECTS.map((_, i) => `${-10 - (i * 75)}vw`)];
+  const carouselOutput = ["100vw", ...PROJECTS.map((_, i) => `${INITIAL_OFFSET_VW - (i * STEP_VW)}vw`)];
   const carouselX = useTransform(progress, carouselInput, carouselOutput);
 
   return (
@@ -121,17 +126,21 @@ function App() {
       </div>
 
       {/* PHASE 3: CAROUSEL */}
-      <motion.div style={{ x: carouselX }} className="absolute inset-0 flex items-center pl-[30vw] z-30">
-        <div className="flex gap-[15vw]">
+      <motion.div style={{ x: carouselX }} className="absolute inset-0 flex items-center z-30 pointer-events-none">
+        <div className="flex items-center" style={{ gap: `${GAP_VW}vw` }}>
           {PROJECTS.map((project, idx) => {
             const pPeak = carouselStart + ((idx + 1) * step);
             const pStart = pPeak - (step * 0.4);
             const pEnd = pPeak + (step * 0.4);
             return (
-              <div key={project.id} className="relative flex-shrink-0 w-[60vw] h-[70vh] flex flex-col justify-end">
-                <div className="w-full h-full bg-zinc-900 overflow-hidden border border-white/10 grayscale hover:grayscale-0 transition-all duration-700">
-                  <img src={project.image} alt={project.title} className="w-full h-full object-cover" loading={idx < 5 ? "eager" : "lazy"} />
-                </div>
+              <div key={project.id} className="relative flex-shrink-0 flex items-center justify-center" style={{ width: `${CARD_WIDTH_VW}vw`, height: '75vh' }}>
+                <motion.img 
+                  src={project.image} 
+                  alt={project.title} 
+                  className="max-w-full max-h-full object-contain grayscale hover:grayscale-0 transition-all duration-700 shadow-2xl pointer-events-auto" 
+                  loading={idx < 5 ? "eager" : "lazy"} 
+                />
+                
                 <motion.div className="fixed top-12 left-12 text-white z-50 pointer-events-none" style={{ opacity: useTransform(progress, [pStart, pPeak, pEnd], [0, 1, 0]) }}>
                   <span className="text-xl font-light block opacity-50 mb-1">{project.id} /</span>
                   <h3 className="text-4xl font-bold uppercase tracking-widest leading-tight">{project.title}</h3>
