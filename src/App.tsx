@@ -36,7 +36,17 @@ const INTRO_SCROLL_END = 3000;      // Fast intro
 const CAROUSEL_ENTRANCE_END = 8000;  // Slow entrance
 const TOTAL_SCROLL_RANGE = 25000;    // Standard browse speed
 
-function DispersingLetter({ char, progress, enterRange, disperseStart, disperseEnd, dispersal }: any) {
+interface DispersingLetterProps {
+  char: string;
+  progress: MotionValue<number>;
+  enterRange: [number, number];
+  disperseStart: number;
+  disperseEnd: number;
+  dispersal: { x: number; y: number; rotate: number; delay: number };
+  isOutlined?: boolean;
+}
+
+function DispersingLetter({ char, progress, enterRange, disperseStart, disperseEnd, dispersal, isOutlined }: DispersingLetterProps) {
   const start = disperseStart + (dispersal.delay * (disperseEnd - disperseStart) * 0.5);
   const end = disperseEnd;
   const x = useTransform(progress, [start, end], ["0vw", `${dispersal.x}vw`]);
@@ -45,7 +55,15 @@ function DispersingLetter({ char, progress, enterRange, disperseStart, disperseE
   const opacity = useTransform(progress, [enterRange[0], enterRange[1], start, Math.max(start + 0.01, end - 0.02)], [0, 1, 1, 0]);
 
   return (
-    <motion.span style={{ x, y, rotate, opacity, display: 'inline-block', marginLeft: "0.05em" }}>
+    <motion.span 
+      style={{ 
+        x, y, rotate, opacity, 
+        display: 'inline-block', 
+        marginLeft: "0.05em",
+        WebkitTextStroke: isOutlined ? '1px white' : 'none',
+        color: isOutlined ? 'transparent' : 'white'
+      }}
+    >
       {char}
     </motion.span>
   );
@@ -108,7 +126,10 @@ function ProjectCard({ project, idx, progress, pStart, pPeak, pEnd, CARD_WIDTH_V
         style={{ opacity: useTransform(progress, [pStart, pPeak, pEnd], [0, 1, 0]) }}
       >
         <span className="text-xl font-light block opacity-50 mb-1">{project.id} /</span>
-        <h3 className="text-4xl font-bold uppercase tracking-widest leading-tight">{project.title}</h3>
+        <h3 className="text-4xl font-bold uppercase tracking-widest leading-tight">
+          <span style={{ WebkitTextStroke: '1px white', color: 'transparent' }}>{project.title.split(" ")[0]}</span>
+          {project.title.split(" ").length > 1 && ` ${project.title.split(" ").slice(1).join(" ")}`}
+        </h3>
       </motion.div>
     </div>
   );
@@ -175,21 +196,10 @@ function App() {
   }, []);
 
   const handleBackToStart = () => {
-    // The first project is centered at carouselStart + step
-    // Using our non-linear map, 0.65+ (carouselStart) corresponds to INTRO_SCROLL_END (3000)
-    // We'll target slightly past that where the first card centers
     const targetProgress = carouselStart + step;
-    
-    // Reverse map: find scroll value that produces targetProgress
-    // targetProgress is in the range [carouselStart, 0.75]
-    // so we interpolate between INTRO_SCROLL_END and CAROUSEL_ENTRANCE_END
     const ratio = (targetProgress - carouselStart) / (0.75 - carouselStart);
     const targetScroll = INTRO_SCROLL_END + ratio * (CAROUSEL_ENTRANCE_END - INTRO_SCROLL_END);
-
-    animate(scrollValue, targetScroll, {
-      duration: 2.5,
-      ease: [0.65, 0, 0.35, 1]
-    });
+    animate(scrollValue, targetScroll, { duration: 2.5, ease: [0.65, 0, 0.35, 1] });
   };
 
   return (
@@ -199,16 +209,12 @@ function App() {
           {lettersMatej.map((char, i) => <DispersingLetter key={`m-${i}`} char={char} progress={progress} dispersal={dispMatej[i]} enterRange={i === 0 ? [0, 0] : [alignEnd, expandEnd]} disperseStart={nameDisperseStart} disperseEnd={nameDisperseEnd} />)}
         </motion.div>
         <motion.div className="absolute top-1/2 left-1/2 flex items-center" style={{ transform: 'translate(-50%, -50%)', x: useTransform(progress, [0, entranceEnd, alignEnd], ["10vw", "10vw", "-15vw"]), y: useTransform(progress, [0, entranceEnd, alignEnd], ["100vh", "10vh", "6vh"]) }}>
-          {lettersHanzel.map((char, i) => <DispersingLetter key={`h-${i}`} char={char} progress={progress} dispersal={dispHanzel[i]} enterRange={i === 0 ? [0, 0] : [alignEnd, expandEnd]} disperseStart={nameDisperseStart} disperseEnd={nameDisperseEnd} />)}
+          {lettersHanzel.map((char, i) => <DispersingLetter key={`h-${i}`} char={char} progress={progress} dispersal={dispHanzel[i]} enterRange={i === 0 ? [0, 0] : [alignEnd, expandEnd]} disperseStart={nameDisperseStart} disperseEnd={nameDisperseEnd} isOutlined />)}
         </motion.div>
       </div>
 
       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-40">
-        {/* Interaction Hint */}
-        <motion.div 
-          style={{ opacity: useTransform(progress, [titleEnterStart, titlePeak, titleDisperseStart], [0, 1, 0]) }}
-          className="absolute top-12 right-12 text-[10px] uppercase tracking-[0.3em] flex items-start gap-3 origin-right"
-        >
+        <motion.div style={{ opacity: useTransform(progress, [titleEnterStart, titlePeak, titleDisperseStart], [0, 1, 0]) }} className="absolute top-12 right-12 text-[10px] uppercase tracking-[0.3em] flex items-start gap-3 origin-right">
           <span style={{ WebkitTextStroke: '0.5px white' }} className="text-xl text-transparent leading-none">*</span>
           <div className="flex flex-col gap-1 font-light opacity-60 scale-y-150 origin-top">
             <span>scroll into images</span>
@@ -220,7 +226,7 @@ function App() {
           {lettersSelected.map((char, i) => <DispersingLetter key={`s-${i}`} char={char} progress={progress} dispersal={dispSelected[i]} enterRange={[titleEnterStart, titlePeak]} disperseStart={titleDisperseStart} disperseEnd={titleDisperseEnd} />)}
         </motion.div>
         <motion.div className="flex text-[12vw] font-bold uppercase tracking-[0.2em] outline-text text-transparent leading-none mt-[-2vw]" style={{ y: useTransform(progress, [titleEnterStart, titlePeak], ["-50vh", "0vh"]), WebkitTextStroke: '1px white' }}>
-          {lettersWorks.map((char, i) => <DispersingLetter key={`w-${i}`} char={char} progress={progress} dispersal={dispWorks[i]} enterRange={[titleEnterStart, titlePeak]} disperseStart={titleDisperseStart} disperseEnd={titleDisperseEnd} />)}
+          {lettersWorks.map((char, i) => <DispersingLetter key={`w-${i}`} char={char} progress={progress} dispersal={dispWorks[i]} enterRange={[titleEnterStart, titlePeak]} disperseStart={titleDisperseStart} disperseEnd={titleDisperseEnd} isOutlined />)}
         </motion.div>
       </div>
 
@@ -237,24 +243,10 @@ function App() {
             />
           ))}
           
-          <div 
-            className="relative flex-shrink-0 flex items-center justify-center cursor-pointer pointer-events-auto group" 
-            style={{ width: `${CARD_WIDTH_VW}vw`, height: '75vh' }}
-            onClick={handleBackToStart}
-          >
+          <div className="relative flex-shrink-0 flex items-center justify-center cursor-pointer pointer-events-auto group" style={{ width: `${CARD_WIDTH_VW}vw`, height: '75vh' }} onClick={handleBackToStart}>
             <div className="flex items-center gap-6">
-              <div 
-                className="text-6xl text-transparent transition-all duration-500 group-hover:-translate-x-2"
-                style={{ WebkitTextStroke: '1px white' }}
-              >
-                ←
-              </div>
-              <span 
-                className="text-[4vw] font-normal lowercase tracking-tight text-transparent transition-all duration-500"
-                style={{ WebkitTextStroke: '1px white' }}
-              >
-                back to start
-              </span>
+              <div className="text-6xl text-transparent transition-all duration-500 group-hover:-translate-x-2" style={{ WebkitTextStroke: '1px white' }}>←</div>
+              <span className="text-[4vw] font-normal lowercase tracking-tight text-transparent transition-all duration-500" style={{ WebkitTextStroke: '1px white' }}>back to start</span>
             </div>
           </div>
         </div>
