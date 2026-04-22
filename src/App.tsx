@@ -1,8 +1,8 @@
 import { motion, useMotionValue, useTransform, useSpring, MotionValue } from "framer-motion";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 
 const DISCO_KAVA_IMAGES = [
-  "_DSC4215.webp", "_DSC1837.webp", "_DSC1856.webp", "_DSC1856.webp", "_DSC1868.webp", "_DSC1903.webp",
+  "_DSC4215.webp", "_DSC1837.webp", "_DSC1856.webp", "_DSC1868.webp", "_DSC1903.webp",
   "_DSC1916.webp", "_DSC1952.webp", "_DSC2022.webp", "_DSC2077.webp", "_DSC2212.webp",
   "_DSC2347.webp", "_DSC2393.webp", "_DSC2426.webp", "_DSC2456.webp", "_DSC2511.webp",
   "_DSC2532.webp", "_DSC2665.webp", "_DSC2721.webp", "_DSC2814.webp", "_DSC2959.webp",
@@ -13,37 +13,26 @@ const DISCO_KAVA_IMAGES = [
   "_DSC5382.webp", "_DSC5525.webp", "Kopija dokumenta _DSC4215.webp"
 ];
 
-const PROJECTS = DISCO_KAVA_IMAGES.map((img, idx) => ({
+const PROJECTS_DATA = DISCO_KAVA_IMAGES.map((img, idx) => ({
   id: (idx + 1).toString().padStart(2, '0'),
   title: idx === 0 ? "DISCO & COFFEE" : `PROJECT ${idx + 1}`,
   image: `/discokava/${img}`
 }));
 
-// STABLE TIMINGS
+// TIMINGS
 const entranceEnd = 0.08;
 const alignEnd = 0.16;
 const expandEnd = 0.24;
 const nameDisperseStart = 0.28;
 const nameDisperseEnd = 0.38;
-
 const titleEnterStart = 0.40;
 const titlePeak = 0.50;
 const titleDisperseStart = 0.54;
 const titleDisperseEnd = 0.64;
-
 const carouselStart = 0.65;
 const SCROLL_RANGE = 25000;
 
-interface DispersingLetterProps {
-  char: string;
-  progress: MotionValue<number>;
-  enterRange: [number, number];
-  disperseStart: number;
-  disperseEnd: number;
-  dispersal: { x: number; y: number; rotate: number; delay: number };
-}
-
-function DispersingLetter({ char, progress, enterRange, disperseStart, disperseEnd, dispersal }: DispersingLetterProps) {
+function DispersingLetter({ char, progress, enterRange, disperseStart, disperseEnd, dispersal }: any) {
   const start = disperseStart + (dispersal.delay * (disperseEnd - disperseStart) * 0.5);
   const end = disperseEnd;
   const x = useTransform(progress, [start, end], ["0vw", `${dispersal.x}vw`]);
@@ -58,21 +47,75 @@ function DispersingLetter({ char, progress, enterRange, disperseStart, disperseE
   );
 }
 
+function ProjectCard({ project, idx, progress, pStart, pPeak, pEnd, CARD_WIDTH_VW, onHoverChange }: any) {
+  const localScale = useMotionValue(1);
+  const smoothScale = useSpring(localScale, { damping: 30, stiffness: 200 });
+
+  const handleWheel = useCallback((e: WheelEvent) => {
+    // When hovering, this card handles the wheel for zooming
+    const zoomSensitivity = 0.001;
+    const currentScale = localScale.get();
+    const newScale = Math.min(Math.max(currentScale - e.deltaY * zoomSensitivity, 1), 3);
+    localScale.set(newScale);
+  }, [localScale]);
+
+  return (
+    <div 
+      className="relative flex-shrink-0 flex items-center justify-center" 
+      style={{ width: `${CARD_WIDTH_VW}vw`, height: '75vh' }}
+      onMouseEnter={() => {
+        onHoverChange(idx, handleWheel);
+      }}
+      onMouseLeave={() => {
+        onHoverChange(null, null);
+      }}
+    >
+      <div className="w-full h-full flex items-center justify-center overflow-hidden">
+        <motion.img 
+          src={project.image} 
+          alt={project.title} 
+          className="max-w-full max-h-full object-contain grayscale hover:grayscale-0 transition-all duration-700 shadow-2xl pointer-events-auto cursor-zoom-in" 
+          style={{ scale: smoothScale }}
+          loading={idx < 5 ? "eager" : "lazy"} 
+        />
+      </div>
+      
+      <motion.div 
+        className="fixed top-12 left-12 text-white z-50 pointer-events-none" 
+        style={{ opacity: useTransform(progress, [pStart, pPeak, pEnd], [0, 1, 0]) }}
+      >
+        <span className="text-xl font-light block opacity-50 mb-1">{project.id} /</span>
+        <h3 className="text-4xl font-bold uppercase tracking-widest leading-tight">{project.title}</h3>
+      </motion.div>
+    </div>
+  );
+}
+
 function App() {
   const scrollValue = useMotionValue(0);
   const smoothProgress = useSpring(scrollValue, { damping: 60, stiffness: 200 });
   const progress = useTransform(smoothProgress, [0, SCROLL_RANGE], [0, 1]);
 
+  const [activeZoomHandler, setActiveZoomHandler] = useState<{idx: number, handler: (e: WheelEvent) => void} | null>(null);
+
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const sensitivity = 1.5;
-      const newValue = scrollValue.get() + e.deltaY * sensitivity;
-      scrollValue.set(Math.min(Math.max(newValue, 0), SCROLL_RANGE));
+      
+      if (activeZoomHandler) {
+        // If we are hovering an image, use wheel to zoom
+        activeZoomHandler.handler(e);
+      } else {
+        // Otherwise, move the carousel
+        const sensitivity = 1.5;
+        const newValue = scrollValue.get() + e.deltaY * sensitivity;
+        scrollValue.set(Math.min(Math.max(newValue, 0), SCROLL_RANGE));
+      }
     };
+    
     window.addEventListener('wheel', handleWheel, { passive: false });
     return () => window.removeEventListener('wheel', handleWheel);
-  }, [scrollValue]);
+  }, [scrollValue, activeZoomHandler]);
 
   const lettersMatej = useMemo(() => "MATEJ".split(""), []);
   const lettersHanzel = useMemo(() => "HANŽEL".split(""), []);
@@ -91,20 +134,23 @@ function App() {
   const dispSelected = useMemo(() => lettersSelected.map(() => getRandomDispersal('bottom')), [lettersSelected]);
   const dispWorks = useMemo(() => lettersWorks.map(() => getRandomDispersal('bottom')), [lettersWorks]);
 
-  // CAROUSEL CONFIG
   const CARD_WIDTH_VW = 60;
-  const GAP_VW = 5; // Unified spacing
+  const GAP_VW = 5;
   const STEP_VW = CARD_WIDTH_VW + GAP_VW;
-  const INITIAL_OFFSET_VW = (100 - CARD_WIDTH_VW) / 2; // Centers the first card: (100-60)/2 = 20vw
+  const INITIAL_OFFSET_VW = (100 - CARD_WIDTH_VW) / 2;
 
-  const step = (1 - carouselStart) / (PROJECTS.length);
-  const carouselInput = [carouselStart, ...PROJECTS.map((_, i) => carouselStart + (i + 1) * step)];
-  const carouselOutput = ["100vw", ...PROJECTS.map((_, i) => `${INITIAL_OFFSET_VW - (i * STEP_VW)}vw`)];
+  const step = (1 - carouselStart) / PROJECTS_DATA.length;
+  const carouselInput = [carouselStart, ...PROJECTS_DATA.map((_, i) => carouselStart + (i + 1) * step)];
+  const carouselOutput = ["100vw", ...PROJECTS_DATA.map((_, i) => `${INITIAL_OFFSET_VW - (i * STEP_VW)}vw`)];
   const carouselX = useTransform(progress, carouselInput, carouselOutput);
+
+  const handleHoverChange = useCallback((idx: number | null, handler: any) => {
+    if (idx === null) setActiveZoomHandler(null);
+    else setActiveZoomHandler({ idx, handler });
+  }, []);
 
   return (
     <div className="fixed inset-0 bg-black text-white font-univers overflow-hidden flex items-center justify-center">
-      
       {/* PHASE 1: NAMES */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-[8vw] font-bold uppercase tracking-tighter">
         <motion.div className="absolute top-1/2 left-1/2 flex items-center" style={{ transform: 'translate(-50%, -50%)', x: useTransform(progress, [0, entranceEnd, alignEnd], ["100vw", "5vw", "-15vw"]), y: useTransform(progress, [0, entranceEnd, alignEnd], ["-10vh", "-10vh", "-6vh"]) }}>
@@ -128,26 +174,16 @@ function App() {
       {/* PHASE 3: CAROUSEL */}
       <motion.div style={{ x: carouselX }} className="absolute inset-0 flex items-center z-30 pointer-events-none">
         <div className="flex items-center" style={{ gap: `${GAP_VW}vw` }}>
-          {PROJECTS.map((project, idx) => {
-            const pPeak = carouselStart + ((idx + 1) * step);
-            const pStart = pPeak - (step * 0.4);
-            const pEnd = pPeak + (step * 0.4);
-            return (
-              <div key={project.id} className="relative flex-shrink-0 flex items-center justify-center" style={{ width: `${CARD_WIDTH_VW}vw`, height: '75vh' }}>
-                <motion.img 
-                  src={project.image} 
-                  alt={project.title} 
-                  className="max-w-full max-h-full object-contain grayscale hover:grayscale-0 transition-all duration-700 shadow-2xl pointer-events-auto" 
-                  loading={idx < 5 ? "eager" : "lazy"} 
-                />
-                
-                <motion.div className="fixed top-12 left-12 text-white z-50 pointer-events-none" style={{ opacity: useTransform(progress, [pStart, pPeak, pEnd], [0, 1, 0]) }}>
-                  <span className="text-xl font-light block opacity-50 mb-1">{project.id} /</span>
-                  <h3 className="text-4xl font-bold uppercase tracking-widest leading-tight">{project.title}</h3>
-                </motion.div>
-              </div>
-            );
-          })}
+          {PROJECTS_DATA.map((project, idx) => (
+            <ProjectCard 
+              key={project.id} project={project} idx={idx} progress={progress}
+              pPeak={carouselStart + ((idx + 1) * step)}
+              pStart={carouselStart + ((idx + 1) * step) - (step * 0.4)}
+              pEnd={carouselStart + ((idx + 1) * step) + (step * 0.4)}
+              CARD_WIDTH_VW={CARD_WIDTH_VW}
+              onHoverChange={handleHoverChange}
+            />
+          ))}
         </div>
       </motion.div>
 
